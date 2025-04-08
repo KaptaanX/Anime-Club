@@ -5,7 +5,7 @@ import random
 import string
 from telebot import types
 
-API_KEY = "YOUR_BOT_API_KEY"
+API_KEY = "7669244795:AAFTzXaUt2NiJkU2UVTJdtDuRs4GuL8oJCQ"
 bot = telebot.TeleBot(API_KEY)
 bot.delete_webhook()
 

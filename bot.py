@@ -3,6 +3,7 @@ import telebot
 import json
 import random
 import string
+import threading
 from telebot import types
 
 API_KEY = "7669244795:AAFTzXaUt2NiJkU2UVTJdtDuRs4GuL8oJCQ"
@@ -10,11 +11,11 @@ bot = telebot.TeleBot(API_KEY)
 bot.delete_webhook()
 
 bot_id = 'DEVSUDIPX'
-admin_ids = [7967175667, 1234567890]  # Multiple admins supported
+admin_ids = [7967175667, 1234567890]
 channel_username = "@Aizamods"
 
-# Temporary buffer for storing messages
 admin_uploads = {}
+user_last_code = {}  # NEW: store last used code per user
 
 def get_data(file_name):
     try:
@@ -54,7 +55,7 @@ def finish_upload(message):
     all_links[code] = uploaded
     save_data(f"{bot_id}-files.json", all_links)
     bot.send_message(message.chat.id, f"✅ Your link is ready:\nhttps://t.me/{bot.get_me().username}?start={code}")
-    admin_uploads[message.from_user.id] = []  # reset buffer
+    admin_uploads[message.from_user.id] = []
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
@@ -70,9 +71,15 @@ def handle_start(message):
 
     user_id = message.from_user.id
     code = text.split("/start ")[-1]
+    user_last_code[user_id] = code  # store the last used code
+
     all_links = get_data(f"{bot_id}-files.json")
     if code in all_links:
-        status = bot.get_chat_member(channel_username, user_id).status
+        try:
+            status = bot.get_chat_member(channel_username, user_id).status
+        except:
+            status = "left"
+
         if status not in ["member", "administrator", "creator"]:
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("📢 Join Channel", url="https://t.me/Aizamods"))
@@ -81,9 +88,11 @@ def handle_start(message):
                            caption=f"<b>👋 Hey! You need to join our channel to access the files.</b>",
                            reply_markup=markup, parse_mode='HTML')
             return
+
         for file_id in all_links[code]:
             try:
-                bot.copy_message(chat_id=user_id, from_chat_id='-1002565955658', message_id=file_id)
+                sent = bot.copy_message(chat_id=user_id, from_chat_id='-1002565955658', message_id=file_id)
+                threading.Timer(600, lambda: bot.delete_message(user_id, sent.message_id)).start()  # auto-delete after 10 min
             except:
                 continue
 
@@ -104,10 +113,27 @@ def handle_media(message):
 @bot.callback_query_handler(func=lambda call: call.data == 'join')
 def check_join(call):
     user_id = call.from_user.id
-    status = bot.get_chat_member(channel_username, user_id).status
+    try:
+        status = bot.get_chat_member(channel_username, user_id).status
+    except:
+        status = "left"
+
     if status in ["member", "administrator", "creator"]:
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(user_id, "✅ You have joined the channel. Now plz reclick old link for files.")
+
+        # Get previously used code if available
+        code = user_last_code.get(user_id)
+        if code:
+            start_link = f"https://t.me/{bot.get_me().username}?start={code}"
+        else:
+            start_link = f"https://t.me/{bot.get_me().username}"
+
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("📁 Click Here to Files", url=start_link))
+
+        bot.send_message(user_id,
+                         "✅ You have joined the channel.\n\n👇 Tap below to access your files:",
+                         reply_markup=markup)
     else:
         bot.answer_callback_query(call.id, "❌ Please join the channel first!")
 

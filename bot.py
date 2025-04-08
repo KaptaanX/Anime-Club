@@ -107,7 +107,7 @@ def check_join(call):
     status = bot.get_chat_member(channel_username, user_id).status
     if status in ["member", "administrator", "creator"]:
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(user_id, "✅ You have joined the channel. Now use the bot freely.")
+        bot.send_message(user_id, "✅ You have joined the channel. Now plz reclick old link for files.")
     else:
         bot.answer_callback_query(call.id, "❌ Please join the channel first!")
 
